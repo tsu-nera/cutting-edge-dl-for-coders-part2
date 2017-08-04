@@ -1,4 +1,4 @@
-import utils2; importlib.reload(utils2)
+import utils2
 from utils2 import *
 
 from scipy.optimize import fmin_l_bfgs_b
@@ -7,10 +7,15 @@ from keras import metrics
 
 from vgg16_avg import VGG16_Avg
 
-arr_lr = bcolz.open('/home/ubuntu/data/trn_resized_72.bc')[:]
+# get data from http://files.fast.ai/data/
 arr_hr = bcolz.open('/home/ubuntu/data/trn_resized_288.bc')[:]
 
-parms = {'verbose': 0, 'callbacks': [TQDMNotebookCallback(leave_inner=True)]}
+rn_mean = np.array([123.68, 116.779, 103.939], dtype=np.float32)
+preproc = lambda x: (x - rn_mean)[:, :, ::-1]
+
+def mean_sqr_b(diff):
+    dims = list(range(1,K.ndim(diff)))
+    return K.expand_dims(K.sqrt(K.mean(diff**2, dims)), 0)
 
 def conv_block(x, filters, size, stride=(2,2), mode='same', act=True):
     x = Convolution2D(filters, size, size, subsample=stride, border_mode=mode)(x)
@@ -49,7 +54,7 @@ class ReflectionPadding2D(Layer):
 
 shp = arr_hr.shape[1:]
 
-style = Image.open('/home/ubuntu/data/starry_night.jpg')
+style = Image.open('data/starry_night.jpg')
 style = np.array(style)[:shp[0], :shp[1], :shp[2]]
 
 def res_crop_block(ip, nf=64):
@@ -108,7 +113,7 @@ targ = np.zeros((arr_hr.shape[0], 1))
 m_style.compile('adam', 'mae')
 
 K.set_value(m_style.optimizer.lr, 1e-4)
-m_style.fit([arr_hr, arr_hr], targ, 16, 1, **parms)
+m_style.fit([arr_hr, arr_hr], targ, 16, 1)
 
 top_model = Model(inp, outp)
-top_model.save_weights('/home/ubuntu/courses/deeplearning2/style_final.h5')
+top_model.save_weights('model/style_gogh.h5')
